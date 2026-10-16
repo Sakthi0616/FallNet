@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FallNet AI - Thermal Fall Detection System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="logo-icon">
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>FallNet <span class="badge-tag">AI VISION</span></h1>
+                    <p class="subtitle">Thermal Infrared Video Fall Detection & Action Recognition</p>
+                </div>
+            </div>
+            <div class="system-status">
+                <span class="pulse-dot"></span>
+                <span id="gpu-badge">GPU Accelerated (RTX A500)</span>
+            </div>
+        </header>
+
+        <!-- Main Grid -->
+        <main class="main-grid">
+            <!-- Left Control Panel -->
+            <section class="card control-card">
+                <div class="card-header">
+                    <h2>Input Selection & Parameters</h2>
+                    <span class="step-num">Step 1</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="sample-select">Select Test Sample (1-Click)</label>
+                    <select id="sample-select" class="form-control">
+                        <option value="">-- Choose a preconfigured sample --</option>
+                    </select>
+                </div>
+
+                <div class="form-divider"><span>OR</span></div>
+
+                <div class="form-group">
+                    <label for="folder-input">Custom Folder Path / Name</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="folder-input" class="form-control" placeholder="e.g. Fall14, NonFall25, or full path...">
+                    </div>
+                    <small class="helper-text">Accepts folder names from dataset or custom local directory of thermal frames.</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="model-select">Detection Model Architecture</label>
+                    <select id="model-select" class="form-control">
+                        <option value="ensemble" selected>★ 2-Way Hybrid Ensemble (ResNet-GRU + Transformer) [Recommended]</option>
+                        <option value="resnet_gru">ResNet18 + Bi-GRU (High Recall, 11.7M params)</option>
+                        <option value="transformer">MobileNetV3 + Transformer (Fastest, 4.2M params)</option>
+                        <option value="r3d">R3D-18 Spatiotemporal CNN (33M params)</option>
+                    </select>
+                </div>
+
+                <button id="analyze-btn" class="btn btn-primary">
+                    <span class="btn-text">Analyze Thermal Video</span>
+                    <span class="spinner" style="display: none;"></span>
+                </button>
+
+                <div class="card-footer-info">
+                    <div class="info-pill">
+                        <span class="info-label">Thresholding</span>
+                        <span class="info-val">Dynamic Hysteresis</span>
+                    </div>
+                    <div class="info-pill">
+                        <span class="info-label">Window Size</span>
+                        <span class="info-val">16 Frames (Lag 2)</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Results Panel -->
+            <section class="card results-card" id="results-panel">
+                <div class="card-header">
+                    <h2>Prediction & Analysis Dashboard</h2>
+                    <span class="step-num" id="status-step">Awaiting Input</span>
+                </div>
+
+                <!-- Empty State Placeholder -->
+                <div id="empty-state" class="empty-state">
+                    <div class="empty-icon">
+                        <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                            <line x1="8" y1="21" x2="16" y2="21"></line>
+                            <line x1="12" y1="17" x2="12" y2="21"></line>
+                        </svg>
+                    </div>
+                    <h3>No Video Selected</h3>
+                    <p>Select a sample from the dropdown or specify a folder to run inference.</p>
+                </div>
+
+                <!-- Live Results Content -->
+                <div id="results-content" style="display: none;">
+                    <!-- Alert Banner -->
+                    <div id="alert-banner" class="alert-banner">
+                        <div class="alert-icon-wrap" id="alert-icon"></div>
+                        <div class="alert-text-wrap">
+                            <h3 id="alert-title">STATUS</h3>
+                            <p id="alert-desc">Detection details will appear here.</p>
+                        </div>
+                    </div>
+
+                    <!-- Metrics Grid -->
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <span class="metric-title">Peak Probability</span>
+                            <span class="metric-val" id="metric-prob">--</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-title">Decision Threshold</span>
+                            <span class="metric-val" id="metric-thr">--</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-title">Frames / Windows</span>
+                            <span class="metric-val" id="metric-frames">--</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-title">Inference Time</span>
+                            <span class="metric-val" id="metric-latency">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Side-by-side Visual Inspector -->
+                    <div class="vision-inspector">
+                        <h4>Critical Impact Moment Keyframes (Frame <span id="keyframe-num">--</span>)</h4>
+                        <div class="frames-comparison">
+                            <div class="frame-box">
+                                <span class="frame-tag">Percentile-Normalized Thermal</span>
+                                <img id="frame-rgb" src="" alt="Peak RGB Thermal Frame">
+                            </div>
+                            <div class="frame-box">
+                                <span class="frame-tag">Differential Motion Shockwave</span>
+                                <img id="frame-motion" src="" alt="Peak Motion Channel">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timeline Chart Canvas -->
+                    <div class="timeline-container">
+                        <div class="timeline-header">
+                            <h4>Temporal Fall Probability Profile</h4>
+                            <span class="legend-badge"><span class="dot-red"></span> Alert Region</span>
+                        </div>
+                        <canvas id="timeline-canvas" width="800" height="180"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
